@@ -42,6 +42,15 @@ void display_message(char *message, int size,int nb_message){
 	}
 }
 
+void construire_message(char *message, char motif, int lg) {
+	int i;
+	for (i=0;i<lg;i++) message[i] = motif;}
+
+void afficher_message(char *message, int lg) {
+	int i;
+	printf("message construit : ");
+	for (i=0;i<lg;i++) printf("%c", message[i]); printf("\n");}
+
 
 void main (int argc, char **argv)
 {
@@ -122,7 +131,9 @@ void main (int argc, char **argv)
 
 
 		int port = atoi(argv[argc-1]);
+		printf("port : %i\n",port);
 		port = htons(port);
+		printf("port : %i\n",port);
 
 		char* message = malloc(sizeof(char)*30);
 
@@ -154,15 +165,20 @@ void main (int argc, char **argv)
 						hp->h_addr,
 						hp->h_length ) ;
 
-			printf("SOURCE : longueur du message émis %d, n° de port local %d, valeur des options, protocole de transport utilisé UDP, nom de la machine destinataire %s\n",size,port,machine_dest);
+			printf("SOURCE : longueur du message émis %d, n° de port local %d, valeur des options, protocole de transport utilisé UDP, nom de la machine destinataire %s\nOn contruit le message :\n",size,port,machine_dest);
 			/*socket built, ready to send messages*/
+
+			int i;
+			for (i=0; i<nb_message; i++){
+			construire_message(message,characters[i],size);
+			afficher_message(message,size);
 
 			int envoi;
 			if ((envoi = sendto(sock, message, size, 0, (struct sockaddr*) &adr_distant, sizeof(adr_distant))) == -1)
 				{ printf("échec de l'envoi\n") ;
 				exit(1) ; 
 				}
-
+			}		
 			printf("server side completed, we now close the socket\n");
 			if (close(sock)==-1) {
 				printf("Could not close socket\n");
@@ -207,9 +223,10 @@ void main (int argc, char **argv)
 					printf("Could not receive message\n");
 					exit(1);
 				} 
+				afficher_message(message,size);
 				//display_message(message,size,nb_message);
 			} 
-			display_message(message,size,nb_message);
+			afficher_message(message,size);
 		
 		if (close(sock)==-1) {
 			printf("Could not close socket\n");
