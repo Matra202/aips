@@ -42,6 +42,14 @@ void display_message(char *message, int size,int nb_message){
 	}
 }
 
+void construire_message(char *message, char motif, int lg) {
+	int i;
+	for (i=0;i<lg;i++) message[i] = motif;}
+
+void afficher_message(char *message, int lg) {
+	int i;
+	printf("message construit : ");
+	for (i=0;i<lg;i++) printf("%c", message[i]); printf("\n");}
 
 void main (int argc, char **argv)
 {
@@ -115,11 +123,10 @@ void main (int argc, char **argv)
 	printf("PUITS: Réception n°xxxxx (yyyyy) [*…*] ");
 	printf("PUITS : longueur du message lu, n° de port local, valeur des options, protocole de transport utilisé \n");*/
 
-	if (protocole != 1) {
-		printf("we only support UDP with v1 please use v2 for TCP\n");
+	if (protocole == 1) {
+		printf("we only support TCP with v2 please use v1 for UDP\n");
 	}
 	else{ 
-
 
 		int port = atoi(argv[argc-1]);
 		port = htons(port);
@@ -135,7 +142,7 @@ void main (int argc, char **argv)
 			int size = 30;
 			int sock;
 
-			if ((sock = socket(AF_INET, SOCK_DGRAM, 0)) == -1)
+			if ((sock = socket(AF_INET, SOCK_STREAM, 0)) == -1)
 				{ printf("échec de création du socket\n") ;
 				exit(1) ; 
 				}
@@ -154,17 +161,29 @@ void main (int argc, char **argv)
 						hp->h_addr,
 						hp->h_length ) ;
 
-			printf("SOURCE : longueur du message émis %d, n° de port local %d, valeur des options, protocole de transport utilisé UDP, nom de la machine destinataire %s\n",size,port,machine_dest);
-			/*socket built, ready to send messages*/
+			printf("SOURCE : longueur du message émis %d, n° de port local %d, valeur des options, protocole de transport utilisé TCP, nom de la machine destinataire %s\n",size,port,machine_dest);
+			/*socket built, ready to connect*/
 
+			if (connect(sock,(struct sockaddr *)&adr_distant, sizeof(adr_distant)) == -1) {
+	  			printf("echec de la connexion \n");
+	    		exit(1);
+			}			
+
+			/* On est connectés on peut envoyer */
+
+			int i;
 			int envoi;
-			if ((envoi = sendto(sock, message, size, 0, (struct sockaddr*) &adr_distant, sizeof(adr_distant))) == -1)
-				{ printf("échec de l'envoi\n") ;
-				exit(1) ; 
-				}
+			for (i=0;i<nb_message;i++){
+				construire_message(message,characters[i],size);
+				afficher_message(message,size);
+				if ((envoi = write(sock, message, size))== -1)
+					{ printf("échec de l'envoi\n") ;
+					exit(1) ; 
+					}
+			}
 
 			printf("server side completed, we now close the socket\n");
-			if (close(sock)==-1) {
+			if (shutdown(sock,1)==-1) { //sock,1 car on est dans la source.
 				printf("Could not close socket\n");
 				exit(1);
 			}
@@ -173,8 +192,17 @@ void main (int argc, char **argv)
 		/* on est dans le puit */
 		else{
 
+			int sock_bis;
+			struct sockaddr_in adr_client ; 
+			int lg_adr_client = sizeof(adr_client);
+
+			int max = 10;
+			int lg_max = 30;
+			int lg_rec; /*longueur du message recu*/
+			nb_message = 10;
+
 			int sock;
-			if ((sock = socket(AF_INET, SOCK_DGRAM, 0)) == -1)
+			if ((sock = socket(AF_INET, SOCK_STREAM, 0)) == -1)
 				{ printf("échec de création du socket\n") ;
 				exit(1) ; 
 				}
@@ -186,32 +214,29 @@ void main (int argc, char **argv)
 			adr_local.sin_addr.s_addr = INADDR_ANY;
 			 
 		
-			if (bind(sock, (struct sockaddr*)&adr_local, sizeof(adr_local))==-1){
+			if (bind(sock, (struct sockaddr*)&adr_local, sizeof(adr_local)) == -1){
 				printf("Could not bind\n");
 				exit(1);
 			} 
 		
-			/* we can now receive the message with recvfrom*/
+			/* Dimensionne la file d'attente des demandes et on les accepte */
+			listen(sock,5);
 
-			int size;
-			int max_size = 200;
-			nb_message = 250;
+			if ((sock_bis=accept(sock, (struct sockaddr *)&adr_client, &lg_adr_client)) == -1) { 
+				printf("Echec du accept \n");
+				exit(1);
+			}
 
-			struct sockaddr_in adr_sender;
-			int size_adr_sender = sizeof(adr_sender);
-
-			for (int i=0; i<nb_message; i++){
-				size = recvfrom(sock, message, max_size, 0,(struct sockaddr*)&adr_sender, &size_adr_sender);
-
-				if (size ==-1){
-					printf("Could not receive message\n");
-					exit(1);
-				} 
-				//display_message(message,size,nb_message);
-			} 
-			display_message(message,size,nb_message);
+			int i;
+			for (i=0; i<nb_message;i++){
+				if((lg_rec = read(sock_bis,message,lg_max)) <0){ 
+				printf("échec du read\n");
+				exit(1);
+				}
+				afficher_message(message,lg_rec);
+			}
 		
-		if (close(sock)==-1) {
+		if (shutdown(sock,0)==-1) { // sock,0 car on est dans le puit
 			printf("Could not close socket\n");
 			exit(1);
 		}

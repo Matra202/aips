@@ -224,9 +224,7 @@ void main (int argc, char **argv)
 					exit(1);
 				} 
 				afficher_message(message,size);
-				//display_message(message,size,nb_message);
 			} 
-			afficher_message(message,size);
 		
 		if (close(sock)==-1) {
 			printf("Could not close socket\n");
