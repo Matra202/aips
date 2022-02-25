@@ -18,6 +18,25 @@ données du réseau */
 /* pour la gestion des erreurs */
 #include <errno.h>
 
+void build_message(char *message, int size, char character, int j){
+	int i;
+	for (i=0; i<size; i++) {
+		if (i<4){
+			message[i]= '-';
+		}
+		else if (i==4) {
+			message[i]=j +'1';
+		}
+		else{
+		message[i] = character;
+		}
+	}
+}
+
+
+void display_message(char *message, int size,int i){
+	printf("Envoi n°%d (%d) [%s]\n" , i, size, message);
+}
 
 void construire_message(char *message, char motif, int lg) {
 	int i;
@@ -36,7 +55,8 @@ void main (int argc, char **argv)
 	int nb_message = -1; /* Nb de messages à envoyer ou à recevoir, par défaut : 10 en émission, infini en réception */
 	int source = -1 ; /* 0=puits, 1=source */
 	int protocole = 0; /* 0 = TCP, 1 = UDP par défaut TCP si il n'y a pas le -u dans les options*/ 
-	while ((c = getopt(argc, argv, "pn:su")) != -1) {
+	int size =-1;
+	while ((c = getopt(argc, argv, "pn:sul:")) != -1) {
 		switch (c) {
 		case 'p':
 			if (source == 1) {
@@ -61,6 +81,10 @@ void main (int argc, char **argv)
 		case 'u':
 			printf("UDP is used\n");
 			protocole = 1;
+			break;
+
+		case 'l':
+			size = atoi(optarg);
 			break;
 
 		default:
@@ -96,9 +120,124 @@ void main (int argc, char **argv)
 
 	}
 
+	/*printf("SOURCE : Envoi n° xxxxx (yyyyy) [*…*] ");
+	printf("PUITS: Réception n°xxxxx (yyyyy) [*…*] ");*/
+
+	if (size == -1){ 
+		size = 30;
+		/* Valeur par défaut*/
+	}
 
 	if (protocole == 1) {
-		printf("we only support TCP with v2 please use v1 for UDP\n");
+
+		/*UDP is used */
+		int port = atoi(argv[argc-1]);
+		port = htons(port);
+
+		char* message = malloc(sizeof(char)*30);
+
+	
+
+		/* si on est dans la source*/
+		if (source == 1){ 
+			
+			char *machine_dest = argv[argc-2];
+
+			char characters[26] = "abcdefghijklmnopqrstuvwxyz";
+			
+			int sock;
+
+			if ((sock = socket(AF_INET, SOCK_DGRAM, 0)) == -1)
+				{ printf("échec de création du socket\n") ;
+				exit(1) ; 
+				}
+			struct hostent *hp ;
+			struct sockaddr_in adr_distant;
+
+			memset((char *)& adr_distant, 0, sizeof(adr_distant)) ;
+			adr_distant.sin_family = AF_INET ; /* domaine Internet*/
+			adr_distant.sin_port = port ; /* n° de port */
+
+			if ((hp = gethostbyname(machine_dest)) == NULL)
+				{ printf("erreur gethostbyname\n") ;
+				exit(1) ; }
+				
+			memcpy( (char*)&(adr_distant.sin_addr.s_addr),
+						hp->h_addr,
+						hp->h_length ) ;
+
+			printf("SOURCE : longueur du message émis %d, n° de port local %d, nombre de message %i , protocole de transport utilisé UDP, nom de la machine destinataire %s\n",size,port,nb_message,machine_dest);
+			/*socket built, ready to send messages*/
+
+			int i;
+			for (i=0; i<nb_message; i++){
+			construire_message(message,characters[i],size);
+			afficher_message(message,size);
+
+			int envoi;
+			if ((envoi = sendto(sock, message, size, 0, (struct sockaddr*) &adr_distant, sizeof(adr_distant))) == -1)
+				{ printf("échec de l'envoi\n") ;
+				exit(1) ; 
+				}
+			}		
+			printf("server side completed, we now close the socket\n");
+			if (close(sock)==-1) {
+				printf("Could not close socket\n");
+				exit(1);
+			}
+		}
+
+		/* on est dans le puit */
+		else{
+
+			int sock;
+			if ((sock = socket(AF_INET, SOCK_DGRAM, 0)) == -1)
+				{ printf("échec de création du socket\n") ;
+				exit(1) ; 
+				}
+			struct sockaddr_in adr_local;
+			memset((char *)& adr_local, 0, sizeof(adr_local)) ;
+
+			adr_local.sin_family = AF_INET ; /* domaine Internet */
+			adr_local.sin_port = port ; /* n° de port */
+			adr_local.sin_addr.s_addr = INADDR_ANY;
+			
+			if (bind(sock, (struct sockaddr*)&adr_local, sizeof(adr_local))==-1){
+				printf("Could not bind\n");
+				exit(1);
+			} 
+		
+			/* we can now receive the message with recvfrom*/
+
+			
+			int max_size = 200;
+			if (nb_message==-1){ 
+				nb_message = 999;
+			} 
+
+			printf("PUIT : longueur du message lu %d, n° de port local %d, nombre de message %i , protocole de transport utilisé UDP\n",size,port,nb_message);
+
+			int size;
+
+			struct sockaddr_in adr_sender;
+			int size_adr_sender = sizeof(adr_sender);
+
+			for (int i=0; i<nb_message; i++){
+				size = recvfrom(sock, message, max_size, 0,(struct sockaddr*)&adr_sender, &size_adr_sender);
+
+				if (size ==-1){
+					printf("Could not receive message\n");
+					exit(1);
+				} 
+				afficher_message(message,size);
+			} 
+
+			if (close(sock)==-1) {
+				printf("Could not close socket\n");
+				exit(1);
+			}	 
+
+		}
 	}
 	else{ 
 
@@ -113,7 +252,10 @@ void main (int argc, char **argv)
 			char *machine_dest = argv[argc-2];
 
 			char characters[26] = "abcdefghijklmnopqrstuvwxyz";
-			int size = 30;
+			if (size == -1){ 
+				printf("on passe size a 30 par défaut\n");
+				size = 30;
+			}
 			int sock;
 
 			if ((sock = socket(AF_INET, SOCK_STREAM, 0)) == -1)
@@ -135,7 +277,7 @@ void main (int argc, char **argv)
 						hp->h_addr,
 						hp->h_length ) ;
 
-			printf("SOURCE : longueur du message émis %d, n° de port local %d, valeur des options, protocole de transport utilisé TCP, nom de la machine destinataire %s\n",size,port,machine_dest);
+			printf("SOURCE : longueur du message émis %d, n° de port local %d, nombre de message %i , protocole de transport utilisé TCP, nom de la machine destinataire %s\n",size,port,nb_message,machine_dest);
 			/*socket built, ready to connect*/
 
 			if (connect(sock,(struct sockaddr *)&adr_distant, sizeof(adr_distant)) == -1) {
@@ -170,10 +312,13 @@ void main (int argc, char **argv)
 			struct sockaddr_in adr_client ; 
 			int lg_adr_client = sizeof(adr_client);
 
-			int max = 10;
+			int max = 99;
 			int lg_max = 30;
 			int lg_rec; /*longueur du message recu*/
-			nb_message = 10;
+			if (nb_message == -1){ 
+				nb_message = 999;
+			}
+			printf("PUIT : longueur du message lu %d, n° de port local %d, nombre de message %i , protocole de transport utilisé UDP\n",size,port,nb_message);
 
 			int sock;
 			if ((sock = socket(AF_INET, SOCK_STREAM, 0)) == -1)

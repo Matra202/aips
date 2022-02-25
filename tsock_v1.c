@@ -18,29 +18,6 @@ données du réseau */
 /* pour la gestion des erreurs */
 #include <errno.h>
 
-void build_message(char *message, int size, char character, int j){
-	int i;
-	for (i=0; i<size; i++) {
-		if (i<4){
-			message[i]= '-';
-		}
-		else if (i==4) {
-			message[i]=j +'1';
-		}
-		else{
-		message[i] = character;
-		}
-	}
-}
-
-
-void display_message(char *message, int size,int nb_message){
-	int i;
-	for (i=0; i<nb_message; i++){
-		//build_message(message,size,characters[i],i);
-		printf("Envoi n°%d (%d) [%s]\n" , i+1 , size, message);
-	}
-}
 
 void construire_message(char *message, char motif, int lg) {
 	int i;
@@ -120,9 +97,6 @@ void main (int argc, char **argv)
 
 	}
 
-	/*printf("SOURCE : Envoi n° xxxxx (yyyyy) [*…*] ");
-	printf("PUITS: Réception n°xxxxx (yyyyy) [*…*] ");
-	printf("PUITS : longueur du message lu, n° de port local, valeur des options, protocole de transport utilisé \n");*/
 
 	if (protocole != 1) {
 		printf("we only support UDP with v1 please use v2 for TCP\n");
@@ -131,9 +105,7 @@ void main (int argc, char **argv)
 
 
 		int port = atoi(argv[argc-1]);
-		printf("port : %i\n",port);
 		port = htons(port);
-		printf("port : %i\n",port);
 
 		char* message = malloc(sizeof(char)*30);
 
