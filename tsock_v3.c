@@ -18,24 +18,25 @@ données du réseau */
 /* pour la gestion des erreurs */
 #include <errno.h>
 
-void build_message(char *message, int size, char character, int j){
-	int i;
-	for (i=0; i<size; i++) {
-		if (i<4){
-			message[i]= '-';
-		}
-		else if (i==4) {
-			message[i]=j +'1';
-		}
-		else{
-		message[i] = character;
-		}
-	}
+void build_message(char *message, int size, char character,int i){
+	sprintf(message,"%*d",5,i);
+	for (int j=0;j<4;j++){
+		if (message[j]==' '){
+			message[j] = '-'; 
+		} 
+	} 
+	for (int j=5;j<size;j++){
+		message[j] = character;
+	}	
 }
 
 
-void display_message(char *message, int size,int i){
+void display_message_s(char *message, int size,int i){
 	printf("Envoi n°%d (%d) [%s]\n" , i, size, message);
+}
+
+void display_message_r(char *message, int size,int i){
+	printf("Reception n°%d (%d) [%s]\n" , i, size, message);
 }
 
 void construire_message(char *message, char motif, int lg) {
@@ -120,9 +121,6 @@ void main (int argc, char **argv)
 
 	}
 
-	/*printf("SOURCE : Envoi n° xxxxx (yyyyy) [*…*] ");
-	printf("PUITS: Réception n°xxxxx (yyyyy) [*…*] ");*/
-
 	if (size == -1){ 
 		size = 30;
 		/* Valeur par défaut*/
@@ -136,7 +134,6 @@ void main (int argc, char **argv)
 
 		char* message = malloc(sizeof(char)*30);
 
-	
 
 		/* si on est dans la source*/
 		if (source == 1){ 
@@ -171,8 +168,8 @@ void main (int argc, char **argv)
 
 			int i;
 			for (i=0; i<nb_message; i++){
-			construire_message(message,characters[i],size);
-			afficher_message(message,size);
+			build_message(message,size,characters[i],i);
+			display_message_s(message,size,i);
 
 			int envoi;
 			if ((envoi = sendto(sock, message, size, 0, (struct sockaddr*) &adr_distant, sizeof(adr_distant))) == -1)
@@ -229,7 +226,7 @@ void main (int argc, char **argv)
 					printf("Could not receive message\n");
 					exit(1);
 				} 
-				afficher_message(message,size);
+				display_message_r(message,size,i);
 			} 
 
 			if (close(sock)==-1) {
@@ -290,15 +287,14 @@ void main (int argc, char **argv)
 			int i;
 			int envoi;
 			for (i=0;i<nb_message;i++){
-				construire_message(message,characters[i],size);
-				afficher_message(message,size);
+				build_message(message,size,characters[i],i);
+				display_message_s(message,size,i);
 				if ((envoi = write(sock, message, size))== -1)
 					{ printf("échec de l'envoi\n") ;
 					exit(1) ; 
 					}
 			}
 
-			printf("server side completed, we now close the socket\n");
 			if (shutdown(sock,1)==-1) { //sock,1 car on est dans la source.
 				printf("Could not close socket\n");
 				exit(1);
@@ -352,7 +348,10 @@ void main (int argc, char **argv)
 				printf("échec du read\n");
 				exit(1);
 				}
-				afficher_message(message,lg_rec);
+				if (lg_rec == 0){
+					break;
+				} 
+				display_message_r(message,lg_rec,i);
 			}
 		
 		if (shutdown(sock,0)==-1) { // sock,0 car on est dans le puit
